@@ -1,0 +1,126 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+  <title>raml-annotations-display demo</title>
+  <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+  <link rel="import" href="../../arc-demo-helpers/raml-demo-page.html">
+  <link rel="import" href="../raml-annotations-display.html">
+  <style>
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto', 'Noto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+  }
+
+  annotations-display {
+    max-width: 700px;
+  }
+  </style>
+</head>
+
+<body unresolved>
+  <template is="dom-bind" id="app">
+    <raml-demo-page on-selected-object-changed="_selectedChanged">
+      <paper-item data-url$="[[testRaml]]">Test case</paper-item>
+      <h1>The raml-annotations-display element</h1>
+      <div main>
+        <template is="dom-if" if="[[hasAnnotations]]">
+          <raml-annotations-display annotations="[[annotations]]"></raml-annotations-display>
+        </template>
+        <template is="dom-if" if="[[!hasAnnotations]]">
+          <p>Anotations not found in selected object</p>
+        </template>
+      </div>
+    </raml-demo-page>
+  </template>
+  <script>
+  (function(scope) {
+    var path = location.pathname;
+    if (~path.indexOf('.html')) {
+      path = path.substr(0, path.lastIndexOf('/') + 1);
+    }
+    scope.testRaml = location.protocol + '//' + location.host +
+      path.replace('demo', 'test') + 'test.raml';
+    scope.annotations = [];
+    scope.hasAnnotations = false;
+
+    function collectAnnotations(obj, array) {
+      if (!obj) {
+        return array;
+      }
+      var _type = typeof obj;
+      if (~['string', 'number', 'boolean'].indexOf(_type)) {
+        return array;
+      }
+      if (obj instanceof Array) {
+        obj.forEach(function(item) {
+          var _item = collectAnnotations(item, []);
+          if (_item && _item.length) {
+            array = array.concat(_item);
+          }
+        });
+      }
+      if ('annotations' in obj) {
+        array = array.concat(obj.annotations);
+      }
+      [
+        'allUriParameters',
+        'headers',
+        'methods',
+        'queryParameters',
+        'resources',
+        'responses',
+        'body',
+        'properties'
+      ].forEach(function(property) {
+        if (!(property in obj)) {
+          return;
+        }
+        var _item = collectAnnotations(obj[property], []);
+        if (_item && _item.length) {
+          array = array.concat(_item);
+        }
+      });
+      return array;
+    }
+    scope._selectedChanged = function(e) {
+      var selected = e.detail.value;
+      var annotations = collectAnnotations(selected, []);
+      scope.hasAnnotations = !!(annotations && annotations.length);
+      if (!scope.hasAnnotations) {
+        scope.annotations = [];
+        return;
+      }
+      var names = [];
+      scope.annotations = annotations.filter(function(item) {
+        if (names.indexOf(item.name) === -1) {
+          names.push(item.name);
+          return true;
+        }
+        return false;
+      });
+    };
+  })(document.getElementById('app'));
+  </script>
+</body>
+
+</html>

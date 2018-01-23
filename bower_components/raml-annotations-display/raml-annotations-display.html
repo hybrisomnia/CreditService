@@ -1,0 +1,214 @@
+<!--
+@license
+Copyright 2016 The Advanced REST client authors <arc@mulesoft.com>
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../marked-element/marked-element.html">
+<link rel="import" href="../prism-element/prism-theme-default.html">
+<link rel="import" href="../markdown-styles/markdown-styles.html">
+<link rel="import" href="../arc-polyfills/arc-polyfills.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<!--
+The `<annotations-display>` element displays list of annotations added to a
+property.
+
+It creates its own model out of RAML definition.
+Currently this element support annotations that it's values are either string,
+nil or a properties list that have primitive values.
+
+### Example
+```
+<raml-annotations-display annotations='[...]'></raml-annotations-display>
+```
+
+### Styling
+`<raml-annotations-display>` provides the following custom properties and mixins for styling:
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--annotations-display` | Mixin applied to the element | `{}`
+`--annotations-display-name` | Mixin applied to annotation name element | `{}`
+`--annotations-display-value` | Mixin applied to the value container. Note that it may contain `<marked-element>`, `ul` for properties list or be empty | `{}`
+`--annotations-display-list` | Mixin applied to the list of annotation properties. The `ul` element in value container. | `{}`
+`--annotations-display-list-name` | Mixin applied to the property list names | `{}`
+`--annotations-display-list-value` | Mixin applied to the property list values | `{}`
+`--annotations-display-list-value-font-weight` | Font weight of the annotation list value | `500`
+
+@group RAML Elements
+@element raml-annotations-display
+@demo demo/index.html
+-->
+<dom-module id="raml-annotations-display">
+  <template strip-whitespaces>
+    <style include="markdown-styles"></style>
+    <style>
+     :host {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+      display: block;
+      @apply(--annotations-display);
+    }
+
+    .annotation {
+      @apply(--layout-horizontal);
+    }
+
+    .annotation-name {
+      margin-right: 8px;
+      @apply(--annotations-display-name);
+    }
+
+    .annotation-value {
+      @apply(--annotations-display-value);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 24px;
+      @apply(--annotations-display-list);
+    }
+
+    li>.value-name {
+      margin-right: 8px;
+      @apply(--annotations-display-list-name);
+    }
+
+    li>.value-content {
+      font-weight: var(--annotations-display-list-value-font-weight, 500);
+      @apply(--annotations-display-list-value);
+    }
+
+    .markdown-html p {
+      margin: 0;
+    }
+    </style>
+    <template is="dom-repeat" items="[[_model]]">
+      <div class="annotation">
+        <div class="annotation-name">[[item.name]]<template is="dom-if" if="[[!item.isNil]]">:</template></div>
+        <div class="annotation-value">
+          <template is="dom-if" if="[[item.isString]]" restamp>
+            <marked-element markdown="[[item.value]]">
+              <div class="markdown-html markdown-body"></div>
+            </marked-element>
+          </template>
+          <template is="dom-if" if="[[item.isArray]]" restamp>
+            <ul class="array">
+              <template is="dom-repeat" items="[[item.list]]" as="list">
+                <li><span class="value-name">[[list.name]]</span><span class="value-content">[[list.value]]</span></li>
+              </template>
+            </ul>
+          </template>
+        </div>
+      </div>
+    </template>
+  </template>
+  <script>
+  Polymer({
+    is: 'raml-annotations-display',
+    properties: {
+      /**
+       * Annotation property of an RAML object.
+       */
+      annotations: Array,
+      // Model generated for the annotations.
+      _model: {
+        type: Array,
+        computed: '_computeModel(annotations.*)'
+      }
+    },
+    /**
+     * Computes if valid annotations has been passed to the element.
+     */
+    _computeHasAnnotations: function(record) {
+      return !!(record && record.base && record.base.length);
+    },
+    // Computes model for the annotations to display.
+    _computeModel: function(record) {
+      if (!this._computeHasAnnotations(record)) {
+        return;
+      }
+      var result = record.base.map(function(item) {
+        item = Object.assign({}, item);
+        delete item.key;
+        item = this._createModelItem(item);
+        return item;
+      }, this);
+      return result.filter(function(item) {
+        return !!item;
+      });
+    },
+    /**
+     * Creates a model item from RAML definition.
+     *
+     * @param {Object} item RAML definition of the annotation.
+     * @return {Object} A model for the view.
+     */
+    _createModelItem: function(item) {
+      var structureType = typeof item.structuredValue;
+      item.isString = !!~['string', 'number', 'boolean'].indexOf(structureType);
+      item.isNil = item.structuredValue === null || item.structuredValue === undefined;
+      if (!item.isString && !item.isNil) {
+        try {
+          var list = this._computeAnnotationList(item);
+          if (list) {
+            item.isArray = true;
+            item.list = list;
+          } else {
+            // Not supported annotation.
+            console.info('Annotation type not supported', item);
+            return;
+          }
+        } catch (e) {
+          console.warn('Issue with annotations computations.', e, item);
+        }
+      } else if (item.isString) {
+        item.value = String(item.structuredValue);
+      }
+      if (!item.isArray) {
+        item.isArray = false;
+      }
+      delete item.structuredValue;
+      return item;
+    },
+    // Computes annotation model for an annotation with list of values.
+    _computeAnnotationList: function(item) {
+      if (!item.structuredValue) {
+        return;
+      }
+      var keys = Object.keys(item.structuredValue);
+      var size = keys.length;
+      if (!size) {
+        return;
+      }
+      var list = keys.map(function(key) {
+        var value = item.structuredValue[key];
+        var _typeof = typeof value;
+        if (!~['string', 'number', 'boolean'].indexOf(_typeof)) {
+          return;
+        }
+        return {
+          name: key,
+          value: value
+        };
+      });
+      list = list.filter(function(item) {
+        return !!item;
+      });
+      if (!list.length) {
+        return;
+      }
+      return list;
+    }
+  });
+  </script>
+</dom-module>

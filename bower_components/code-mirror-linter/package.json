@@ -1,0 +1,27 @@
+{
+  "name": "code-mirror-linter",
+  "version": "0.1.1",
+  "license": "Apache-2.0 OR CC-BY-4.0",
+  "description": "A source files for code mirror linter files",
+  "private": false,
+  "main": [
+    "code-mirror-linter.html"
+  ],
+  "author": "The Advanced REST client authors <arc@mulesoft.com>",
+  "scripts": {
+    "serve": "node_modules/.bin/polymer serve",
+    "lint": "node_modules/.bin/polymer lint code-mirror-linter.html --rules polymer-1",
+    "test-sauce": "node_modules/.bin/polymer test --plugin sauce --job-name \"code-mirror-linter:local-test\"",
+    "test": "exit 0",
+    "deps": "npm install --quiet && bower install --quiet",
+    "update-deps": "npm update --quiet && bower update --quiet"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/advanced-rest-client/code-mirror-linter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/advanced-rest-client/code-mirror-linter/issues",
+    "email": "arc@mulesoft.com"
+  }
+}

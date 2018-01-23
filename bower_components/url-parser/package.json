@@ -1,0 +1,31 @@
+{
+  "name": "url-parser",
+  "version": "0.1.3",
+  "license": "Apache-2.0 OR CC-BY-4.0",
+  "description": "A polyfill library for URL class",
+  "devDependencies": {
+    "bower": "^1.8.0",
+    "polymer-cli": "^1.2.0"
+  },
+  "private": false,
+  "main": [
+    "url-parser.html"
+  ],
+  "author": "The Advanced REST client authors <arc@mulesoft.com>",
+  "scripts": {
+    "serve": "node_modules/.bin/polymer serve",
+    "lint": "node_modules/.bin/polymer lint url-parser.html --rules polymer-1",
+    "test-sauce": "node_modules/.bin/polymer test --plugin sauce --job-name \"url-parser:local-test\"",
+    "test": "node_modules/.bin/polymer test --plugin local",
+    "deps": "npm install --quiet && bower install --quiet",
+    "update-deps": "npm update --quiet && bower update --quiet"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/advanced-rest-client/url-parser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/advanced-rest-client/url-parser/issues",
+    "email": "arc@mulesoft.com"
+  }
+}

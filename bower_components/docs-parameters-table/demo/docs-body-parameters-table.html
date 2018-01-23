@@ -1,0 +1,139 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<html>
+  <head>
+
+    <title>arc-demo-snippet demo</title>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <link rel="import" href="../../iron-flex-layout/iron-flex-layout.html">
+    <link rel="import" href="../../arc-demo-helpers/raml-demo-page.html">
+    <link rel="import" href="../../paper-dropdown-menu/paper-dropdown-menu.html">
+    <link rel="import" href="../../paper-listbox/paper-listbox.html">
+    <link rel="import" href="../../paper-item/paper-item.html">
+    <link rel="import" href="../docs-body-parameters-table.html">
+
+    <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', 'Noto', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 20px;
+      background: #e5e5e5;
+    }
+    docs-body-parameters-table {
+      max-width: 700px;
+    }
+
+    .docs-body-parameters-table-content {
+      margin: 20px 12px;
+      background: #fff;
+    }
+    </style>
+  </head>
+  <body unresolved>
+    <template is="dom-bind" id="app">
+      <raml-demo-page selected-object="{{selected}}" is-method="{{isMethod}}">
+        <paper-item data-url$="[[testRaml]]">Test case</paper-item>
+        <paper-item data-url$="[[testArrayRaml]]">Test case with array value</paper-item>
+        <paper-item data-url$="[[testSchemaRaml]]">Schema example</paper-item>
+        <h1>The docs-body-parameters-table element</h1>
+        <div main>
+          <template is="dom-if" if="[[!hasOptions]]">
+            <p>Selected method does not have the <b>body</b> or <b>response.body</b> property.</p>
+          </template>
+          <template is="dom-if" if="[[isMethod]]" restamp="true">
+            <section class="body-selector">
+              <template is="dom-if" if="[[displayBodySelector]]">
+                <paper-dropdown-menu label="Body source of the demo endpoint" class="body-selector">
+                  <paper-listbox class="dropdown-content" selected="{{selectedOption}}">
+                    <template is="dom-repeat" items="[[bodyOptions]]">
+                      <paper-item>[[item.name]]</paper-item>
+                    </template>
+                  </paper-listbox>
+                </paper-dropdown-menu>
+              </template>
+            </section>
+            <section class="docs-body-parameters-table-content">
+              <docs-body-parameters-table auto-hide has-body="{{hasBody}}" body="[[selectedBody]]"></docs-body-parameters-table>
+            </section>
+            <p hidden$="[[hasBody]]">Selected method does not have the <b>body</b> property.</p>
+          </template>
+          <p hidden$="[[isMethod]]">Select a method</p>
+        </div>
+      </raml-demo-page>
+    </template>
+    <script>
+    (function(scope) {
+      scope.bodyOptions = [];
+      scope.observers = [
+        '_selectedChanged(selected, isMethod)',
+        '_selectBody(bodyOptions, selectedOption)'
+      ];
+      scope._selectedChanged = function(selected, isMethod) {
+        if (!isMethod || !selected) {
+          scope.bodyOptions = [];
+          return;
+        }
+        var list = [];
+        if (selected.body) {
+          list.push({
+            name: 'Request body',
+            value: selected.body
+          });
+        }
+        if (selected.responses) {
+          var responses = selected.responses.filter(function(item) {
+            return !!(item.body && item.body.length);
+          })
+          .map(function(item, i) {
+            return {
+              value: item.body,
+              name: 'Response #' + (i + 1)
+            };
+          });
+          list = list.concat(responses);
+        }
+        scope.selectedBody = undefined;
+        scope.bodyOptions = list;
+        scope.singleOption = list.length === 1;
+        scope.hasOptions = list.length > 0;
+        scope.selectedOption = 0;
+        scope.displayBodySelector = scope.hasOptions && !scope.singleOption;
+      };
+      scope._selectBody = function(bodyOptions, selectedOption) {
+        if (!bodyOptions || !bodyOptions.length) {
+          return;
+        }
+        console.log('selecting body', bodyOptions[selectedOption].value);
+        scope.selectedBody = bodyOptions[selectedOption].value;
+      };
+      var path = location.pathname;
+      if (~path.indexOf('.html')) {
+        path = path.substr(0, path.lastIndexOf('/') + 1);
+      }
+
+      var ramlRoot = location.protocol + '//' + location.host +
+        path.replace('demo', 'test');
+      scope.testRaml = ramlRoot + 'docs-body-parameters-table.raml';
+      scope.testArrayRaml = ramlRoot + 'docs-body-array-parameters-table.raml';
+      scope.testSchemaRaml = ramlRoot + 'schema.raml';
+    })(document.getElementById('app'));
+    </script>
+  </body>
+</html>

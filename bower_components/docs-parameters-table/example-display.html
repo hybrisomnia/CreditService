@@ -1,0 +1,309 @@
+<!--
+@license
+Copyright 2016 The Advanced REST client authors
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../clipboard-copy/clipboard-copy.html">
+<link rel="import" href="../arc-icons/arc-icons.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../paper-tooltip/paper-tooltip.html">
+<link rel="import" href="../json-table/json-table.html">
+<link rel="import" href="structure-display.html">
+<!--
+An element to render an example of the RAML property.
+
+## Usage
+```
+<example-display content="[[json]]" is-json></example-display>
+```
+
+### Styling
+`<docs-json-parameters-table>` provides the following custom properties and mixins for styling:
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--example-display` | Mixin applied to this elements | `{}`
+`--example-display-actions-container` | Mixin applied to the top actions container | `{}`
+`--example-display-button-active-background-color` | Background color of active button | `#e0e0e0`
+`--example-display-button-active` | Mixin applied to selected content button | `{}`
+`--example-display-title` | Mixin applied to the title element | `{}`
+
+@element example-display
+@demo demo/docs-body-parameters-table.html
+-->
+<dom-module id="example-display">
+  <template strip-whitespace>
+    <style>
+    :host {
+      display: block;
+      @apply(--example-display);
+    }
+
+    *[hidden] {
+      display: none;
+    }
+
+    h5 {
+      @apply --example-display-title;
+    }
+
+    paper-icon-button[active] {
+      background-color: var(--example-display-button-active-background-color, #e0e0e0);
+      border-radius: 50%;
+      @apply(--example-display-button-active);
+    }
+
+    .example-actions {
+      @apply(--example-display-actions-container);
+    }
+    </style>
+    <template is="dom-if" if="[[exampleTitle]]">
+      <h5>[[exampleTitle]]</h5>
+    </template>
+    <div class="example-actions">
+      <span>
+        <paper-icon-button icon="arc:content-copy" on-tap="_copyToClipboard"></paper-icon-button>
+        <paper-tooltip animation-delay="200">Copy example to clipboard</paper-tooltip>
+      </span>
+      <template is="dom-if" if="[[isJson]]">
+        <span>
+          <paper-icon-button icon="arc:view-column" active="[[table]]" toggles on-tap="toggleTable"></paper-icon-button>
+          <paper-tooltip animation-delay="200">Toggle table view</paper-tooltip>
+        </span>
+      </template>
+    </div>
+    <template is="dom-if" if="[[!table]]">
+      <pre is="structure-display" display="[[display]]" class="[[_highlightClass]]" data-type="[[_dataType]]" auto-hide></pre>
+    </template>
+    <template is="dom-if" if="[[_computeDisplayTable(isJson, table)]]">
+      <json-table json="[[display]]"></json-table>
+    </template>
+    <clipboard-copy content="[[display]]"></clipboard-copy>
+  </template>
+  <script>
+    Polymer({
+      is: 'example-display',
+      /**
+       * Fired when the `table` property change to inform other elements to switch
+       * corresponding view as well.
+       *
+       * @event json-table-state-changed
+       * @param {Boolean} enabled If true then the view is enabled.
+       */
+      properties: {
+        /**
+         * A content to display. It can be either string to display an example
+         * as a siple value or an Object which is RAML's example object
+         * with `name` and `value` properties.
+         */
+        content: String,
+        /**
+         * A value to display. Computed from the `content` property.
+         */
+        display: {
+          type: String,
+          computed: '_computeExampleDisplay(content)'
+        },
+        // Computed value, an example title if available
+        exampleTitle: {
+          type: String,
+          computed: '_computeExampleTitle(content)'
+        },
+        // If true it will add control to display JSON in table view.
+        isJson: {
+          type: Boolean,
+          observer: '_isJsonChanged'
+        },
+        // If true it will add syntax highlighting for xml.
+        isXml: {
+          type: Boolean,
+          observer: '_isXmlChanged'
+        },
+        /**
+         * If true it will display a table view instead of JSON code.
+         * `isJson` must be set to use this option.
+         */
+        table: {
+          type: Boolean,
+          value: false,
+          observer: '_tableChanged'
+        },
+        /**
+         * CSS class name to be used with Prism highlighter.
+         */
+        _highlightClass: {
+          type: String,
+          value: 'language-javascript'
+        },
+        /**
+         * An argument passed to the `structure-display` element
+         */
+        _dataType: {
+          type: String,
+          value: 'js'
+        }
+      },
+
+      attached: function() {
+        this.listen(window, 'storage', '_onStorageChanged');
+        this.listen(window, 'json-table-state-changed', '_onJsonTableStateChanged');
+      },
+
+      detached: function() {
+        this.unlisten(window, 'storage', '_onStorageChanged');
+        this.unlisten(window, 'json-table-state-changed', '_onJsonTableStateChanged');
+      },
+      /**
+       * Computes title of named example.
+       * @param {Object|String} content The `content` property.
+       * @return {String|undefined} Title or undefined.
+       */
+      _computeExampleTitle: function(content) {
+        if (!content || typeof content === 'string' || !content.name) {
+          return;
+        }
+        return content.name;
+      },
+      /**
+       * Computes a value to display in the element.
+       * @param {Object|String} content The `content` property.
+       * @return {String|undefined} Content or undefined.
+       */
+      _computeExampleDisplay: function(content) {
+        if (!content || typeof content === 'string') {
+          return content;
+        }
+        return content.value;
+      },
+      /**
+       * Coppies current response text value to clipboard.
+       */
+      _copyToClipboard: function(e) {
+        var button = Polymer.dom(e).localTarget;
+        var copy = this.$$('clipboard-copy');
+        if (copy.copy()) {
+          button.icon = 'arc:done';
+        } else {
+          button.icon = 'arc:error';
+        }
+        this.async(function() {
+          this._resetCopyButtonState(button);
+        }, 1000);
+      },
+
+      _resetCopyButtonState: function(button) {
+        button.icon = 'arc:content-copy';
+      },
+
+      // Toggles the JSON table view
+      toggleTable: function() {
+        this.table = !this.table;
+      },
+      /**
+       * Handler for the isJson property change.
+       * Sets the `table` property depending on current state saved in local storage.
+       */
+      _isJsonChanged: function(isJson) {
+        if (!isJson) {
+          return;
+        }
+        if (this._highlightClass !== 'language-javascript') {
+          this._highlightClass = 'language-javascript';
+        }
+        if (this._dataType !== 'js') {
+          this._dataType = 'js';
+        }
+        var isTable = this._localStorageValueToBoolean(localStorage.jsonTableEnabled);
+        if (this.table !== isTable) {
+          this.table = isTable;
+        }
+      },
+      /**
+       * Sets `_highlightClass` property if the `isXml` property is set.
+       *
+       * @param {Boolean} isXml The `this.isXml` property.
+       */
+      _isXmlChanged: function(isXml) {
+        if (isXml) {
+          this._highlightClass = 'language-xml';
+          this._dataType = 'xml';
+        }
+      },
+      // Handler to the `table` change, fires corresponding event and sets local storage.
+      _tableChanged: function(state) {
+        if (state === undefined) {
+          return;
+        }
+        if (localStorage.jsonTableEnabled !== String(state)) {
+          window.localStorage.setItem('jsonTableEnabled', state);
+        }
+        this.fire('json-table-state-changed', {
+          enabled: state
+        });
+      },
+      /**
+       * Updates the value of the `isJsonTable` property when the corresponding localStorage
+       * property change.
+       */
+      _onStorageChanged: function(e) {
+        if (e.key !== 'jsonTableEnabled') {
+          return;
+        }
+        if (!e.newValue) {
+          return;
+        }
+        var v = this._localStorageValueToBoolean(e.newValue);
+        if (this.table !== v) {
+          this.table = v;
+        }
+      },
+      /**
+       * Reads the local value (always a string) as a boolean value.
+       *
+       * @param {String} value The value read from the local storage.
+       * @return {Boolean} Boolean value read from the value.
+       */
+      _localStorageValueToBoolean: function(value) {
+        if (!value) {
+          return false;
+        }
+        if (value === 'true') {
+          value = true;
+        } else {
+          value = false;
+        }
+        return value;
+      },
+      /**
+       * Handler to the incomming `json-table-state-changed` event.
+       * Sets the `table` property if it is different.
+       */
+      _onJsonTableStateChanged: function(e) {
+        if (e.target === this) {
+          return;
+        }
+        var enabled = e.detail.enabled;
+        if (enabled !== this.table) {
+          this.table = enabled;
+        }
+      },
+      /**
+       * Computes if the table can be displayed.
+       * The `table` property can be set even if the `is-json` is not. It's because it can be set
+       * by event listener. Both arguments must be true to display the table.
+       */
+      _computeDisplayTable: function(isJson, table) {
+        return isJson && table;
+      }
+    });
+  </script>
+</dom-module>

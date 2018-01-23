@@ -1,0 +1,505 @@
+<!--
+@license
+Copyright 2016 The Advanced REST client authors <arc@mulesoft.com>
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-styles/paper-styles.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../paper-tabs/paper-tab.html">
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../paper-listbox/paper-listbox.html">
+<link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../iron-pages/iron-pages.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../arc-icons/arc-icons.html">
+<link rel="import" href="../paper-tooltip/paper-tooltip.html">
+<link rel="import" href="../paper-menu-button/paper-menu-button.html">
+<link rel="import" href="../clipboard-copy/clipboard-copy.html">
+<link rel="import" href="../body-json-editor/body-json-editor.html">
+<link rel="import" href="../form-data-editor/form-data-editor.html">
+<link rel="import" href="../raw-payload-editor/raw-payload-editor.html">
+<link rel="import" href="../multipart-payload-editor/multipart-payload-editor.html">
+<link rel="import" href="../files-payload-editor/files-payload-editor.html">
+<!--
+`<raml-body-editor-panel>` A body editor panel containin JSON, XML and form editors.
+
+It is meant to work with the RAML spec. However without it, it will work as a CodeMirror editor.
+
+The default view for the editor is source editor (powered by CodeMirror).
+User can switch to the form view at any time using editor controls.
+
+### Example
+```
+<raml-body-editor-panel></raml-body-editor-panel>
+```
+
+### Styling
+`<raml-body-editor-panel>` provides the following custom properties and mixins for styling:
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--raml-body-editor-panel` | Mixin applied to the element | `{}`
+`--raml-body-editor-panel-content-actions` | Mixin applied to the content action container | `{}`
+
+Use `paper-tabs` and `code-mirror` variables to style this elements.
+
+@group RAML Elements
+@element raml-body-editor-panel
+@demo demo/index.html
+-->
+<dom-module id="raml-body-editor-panel">
+  <template>
+    <style>
+     :host {
+      display: block;
+      @apply --raml-body-editor-panel;
+    }
+
+    .content-actions {
+      @apply --layout-horizontal;
+      @apply --layout-center;
+      @apply --raml-body-editor-panel-content-actions;
+    }
+
+    paper-icon-button[active] {
+      background-color: var(--raml-body-editor-panel-button-active, #e0e0e0);
+      border-radius: 50%;
+      @apply(--raml-body-editor-panel-button-active);
+    }
+    </style>
+    <div class="content-actions">
+      <paper-icon-button icon="arc:content-copy" id="copyButton" on-tap="_copyToClipboard"></paper-icon-button>
+      <paper-icon-button icon="arc:list" id="formButton" toggles active="{{formView}}" hidden$="[[formEditorDisabled]]"></paper-icon-button>
+      <paper-tooltip for="copyButton">Copy current editor value to clipboard</paper-tooltip>
+      <paper-tooltip for="formButton">Toggle form / source editor view</paper-tooltip>
+      <template is="dom-if" if="[[_computeHasMany(mimeTypes)]]">
+        <paper-dropdown-menu label="Select content type" no-label-float>
+          <paper-listbox class="dropdown-content" attr-for-selected="data-mime" selected="{{contentType}}">
+            <template is="dom-repeat" items="[[mimeTypes]]">
+              <paper-item data-mime$="[[item]]">[[item]]</paper-item>
+            </template>
+          </paper-listbox>
+        </paper-dropdown-menu>
+      </template>
+    </div>
+    <iron-pages selected="{{openedEditor}}" selected-attribute="opened">
+      <raw-payload-editor attr-for-opened="opened" value="{{value}}" content-type="[[contentType]]"></raw-payload-editor>
+      <form-data-editor attr-for-opened="opened" narrow="[[narrow]]" value="{{value}}" raml-type="[[selectedType]]"></form-data-editor>
+      <multipart-payload-editor attr-for-opened="opened" value="{{value}}" raml-type="[[selectedType]]"></multipart-payload-editor>
+      <files-payload-editor attr-for-opened="opened" value="{{value}}" on-content-type-changed="_handleFileTypeChange"></files-payload-editor>
+      <body-json-editor attr-for-opened="opened" narrow="[[narrow]]" value="{{value}}" raml-type="[[selectedType]]"></body-json-editor>
+    </iron-pages>
+    <clipboard-copy></clipboard-copy>
+  </template>
+  <script>
+  Polymer({
+    is: 'raml-body-editor-panel',
+    /**
+     * Fires when the value change.
+     *
+     * @event body-value-changed
+     * @param {String} value Current editor value
+     */
+    properties: {
+      /**
+       * Currently selected editor.
+       *
+       * - 0 for Raw editor
+       * - 1 for Form data
+       * - 2 for Multipart
+       * - 3 for File
+       */
+      openedEditor: {
+        type: Number,
+        value: 0,
+        observer: '_openedEditorChanged'
+      },
+      /**
+       * A HTTP body.
+       *
+       * Depending of current editor selection the type can vary.
+       *
+       * @type {String|FormData|File}
+       */
+      value: {
+        type: String,
+        value: '',
+        notify: true
+      },
+      /**
+       * When set it will attempt to run associated code mirror mode.
+       * This element listens for the `content-type-changed` event and when
+       * handled it will automatically update content type and `mode`.
+       * If this value is set than it will override code-mirror `mode`
+       * until this value change.
+       *
+       * Also, this property notifies parent element about the change. It may be changed by the
+       * element when the user start filling the body panel for particular content type and
+       * the type is not the once that is set.
+       * The use case is when a RAML method has more than one body defined (xml and json for
+       * example) and the default is JSON but the user switch to the xml form and start filling it.
+       * Then the content type must be changed to `application/xml`. The `content-type-changed`
+       * will be fired as well in this case.
+       */
+      contentType: {
+        type: String,
+        notify: true,
+        observer: '_contentTypeChanged'
+      },
+      /**
+       * Body definition from the RAML file.
+       * It should be array of the body types. It expects to have expanded types
+       * (so there's no sub-types). This can be done by using the
+       * `<raml-js-parser>` element which expands the types definition.
+       *
+       * When set then the editor will show only forms for correstponding types that are available
+       * for the method.
+       */
+      body: {
+        type: Array,
+        observer: '_bodyChanged'
+      },
+      /**
+       * The mime types found in the `body` array.
+       */
+      mimeTypes: {
+        type: Array,
+        readOnly: true,
+        observer: '_mimeTypesChanged'
+      },
+      /**
+       * RAML's type definition.
+       * A JSON editor uses it to create a schema definition (as a JSON object of {name: type}) to
+       * display autosuggestions.
+       */
+      selectedType: {
+        type: Object,
+        readOnly: true
+      },
+      // Example from selected type to dispaly in the body panel on type change.
+      selectedExample: {
+        type: String,
+        readOnly: true
+      },
+      // if set it will display narrow (mobile) layout.
+      narrow: {
+        type: Boolean,
+        value: false
+      },
+      /**
+       * If set then the form editor instead of source editor will be displayed.
+       */
+      formView: {
+        type: Boolean,
+        observer: '_formViewChanged'
+      },
+      /**
+       * Computed value. If set then the "form editor" button is not rendered.
+       */
+      formEditorDisabled: Boolean
+    },
+
+    observers: [
+      '_valueChanged(value)',
+      '_updateBodyFromExample(selectedExample)',
+      '_computeSelectedType(contentType, body)',
+      '_computeSelectedExample(selectedType)'
+    ],
+
+    attached: function() {
+      this.listen(window, 'content-type-changed', '_ctHandler');
+    },
+
+    detached: function() {
+      this.unlisten(window, 'content-type-changed', '_ctHandler');
+    },
+    /**
+     * Function created for code mirror. Refreshes the editor value when window
+     * is resized to update the view.
+     * This should be called when the element become visible after being hidden.
+     */
+    notifyResize: function() {
+      if (this.openedEditor !== 0) {
+        return;
+      }
+      var cm = this.$$('raw-payload-editor');
+      this.toggleAttribute('opened', false, cm);
+      Polymer.RenderStatus.afterNextRender(this, function() {
+        this.toggleAttribute('opened', true, cm);
+      });
+    },
+    /**
+     * Updated list of available editors depending on a content type.
+     */
+    _contentTypeChanged: function(contentType) {
+      var ramlType = this.selectedType;
+      if (!ramlType || !ramlType.type || ramlType.type !== 'file') {
+        if (this.value instanceof Blob) {
+          this.set('value', '');
+        }
+      }
+      this._setViewOpened(contentType, this.value, this.formView);
+    },
+    /**
+     * Sets up the view (enabled editors and selectors) depending on
+     * current settings.
+     */
+    _setViewOpened: function(contentType, value, formView) {
+      contentType = contentType || '';
+      value = value || '';
+      if (this.__isFormDataType(contentType)) {
+        this.formEditorDisabled = true;
+        this.openedEditor = 2;
+        return;
+      }
+      if (this.__isFileType(contentType, value, this.selectedType)) {
+        if (!(value instanceof Blob)) {
+          this.set('value', '');
+        }
+        this.formEditorDisabled = true;
+        this.openedEditor = 3;
+        return;
+      }
+      if (value instanceof FormData) {
+        this.set('value', '');
+        this._updateBodyFromExample(this.selectedExample);
+      }
+      if (contentType.indexOf('json') !== -1) {
+        this.formEditorDisabled = false;
+        this.openedEditor = formView ? 4 : 0;
+        return;
+      }
+      if (contentType === 'application/x-www-form-urlencoded') {
+        this.formEditorDisabled = false;
+        this.openedEditor = formView ? 1 : 0;
+        return;
+      }
+      this.formEditorDisabled = true;
+      this.openedEditor = 0;
+    },
+    /**
+     * Checks if current settings support File upload.
+     *
+     * @return {Boolean} True if current editor is File editor
+     */
+    __isFileType: function(contentType, value, ramlType) {
+      if (contentType === 'application/octet-stream') {
+        return true;
+      }
+      if (value instanceof Blob) {
+        return true;
+      }
+
+      if (ramlType && ramlType.type && ramlType.type === 'file') {
+        return true;
+      }
+
+      return false;
+    },
+    /**
+     * Checks if current editor support FormData.
+     * @return {Boolean} True if current editor support FormData object
+     */
+    __isFormDataType: function(contentType) {
+      return contentType && contentType.indexOf('multipart/form-data') === 0;
+    },
+    /**
+     * If currently selected editor is Form data editor then it will update
+     * element's value to the same as in the editor.
+     */
+    _editorFormChanged: function(selected, value) {
+      if (selected !== 'form') {
+        return;
+      }
+      this.set('value', value);
+    },
+
+    // Handler for content type changed event.
+    _ctHandler: function(e) {
+      this.set('contentType', e.detail.value);
+    },
+    // Fires the `body-value-changed` event when the value has changed.
+    _valueChanged: function(value) {
+      this.fire('body-value-changed', {
+        value: value
+      });
+      this._setViewOpened(this.contentType, value, this.formView);
+    },
+    /**
+     * Called when `body` array change to set up the `mimeTypes` array.
+     */
+    _bodyChanged: function(body, oldBody) {
+      // This can be set to undefined here without performance suffering
+      // since `undefined` will not trigger observers.
+      this._setMimeTypes(undefined);
+      this._setSelectedType(undefined);
+      this._setSelectedExample(undefined);
+
+      if (!body || !(body instanceof Array)) {
+        if (oldBody) {
+          this.set('value', '');
+        }
+        return;
+      }
+      var mimes = body.map(function(item) {
+        return item.key;
+      });
+      this._setMimeTypes(mimes);
+      if (mimes && mimes.length) {
+        this.set('contentType', mimes[0]);
+      }
+    },
+    /**
+     * A handler for the `mimeTypes` array change.
+     * It will select firts available mime as
+     */
+    _mimeTypesChanged: function(mimes) {
+      if (!mimes) {
+        return;
+      }
+
+      if (mimes[0] !== this.contentType) {
+        this.fire('content-type-changed', {
+          value: mimes[0]
+        });
+      }
+    },
+    // Computes if given argument is an array and has more than one item.
+    _computeHasMany: function(arr) {
+      return (arr && arr instanceof Array) ? arr.length > 1 : false;
+    },
+
+    /**
+     * Computes the `selectedType` property that is passed to the editors.
+     * Editors uses it to display autocomplete feature.
+     */
+    _computeSelectedType: function(mimeType, body) {
+      if (!mimeType || !body || !body.length) {
+        return;
+      }
+      var type = this._getBodyForMime(mimeType, body);
+      this._setSelectedType(type);
+    },
+    /**
+     * Returns a body definition object for given `mime`.
+     *
+     * @param {String} mime The mime type of the body.
+     * @param {Array?} body The list of body definition. If not set then `this.body` will be used
+     * @return {Object|undefined} A body definition or undefined if not found.
+     */
+    _getBodyForMime: function(mime, body) {
+      body = body || this.body;
+      if (!mime || !body || !body.length) {
+        return;
+      }
+      for (var i = 0, len = body.length; i < len; i++) {
+        // the `key` property is set by `raml-to-object` element.
+        if (body[i].key === mime) {
+          return body[i];
+        }
+      }
+    },
+    /**
+     * Toggles the editor view between source editor (code mirror) and dedicated
+     * form editors for JSON, XML and form data.
+     */
+    _formViewChanged: function(formView, oldVal) {
+      if (oldVal === undefined) {
+        return;
+      }
+      this._setViewOpened(this.contentType, this.value, formView);
+      this.fire('send-analytics', {
+        type: 'event',
+        category: 'raml-body-editor',
+        action: 'Toggle form view',
+        label: String(formView)
+      });
+    },
+    // Computes an example for currently selected body
+    _computeSelectedExample: function(type) {
+      var example;
+      if (type && type.example) {
+        example = type.example;
+      } else if (type && type.examples && type.examples.length) {
+        example = type.examples[0];
+      }
+      this._setSelectedExample(example);
+    },
+    // Called when the example change
+    _updateBodyFromExample: function(newBody) {
+      if (!newBody) {
+        return;
+      }
+      this.set('value', newBody);
+    },
+
+    /**
+     * Coppies current response text value to clipboard.
+     */
+    _copyToClipboard: function(e) {
+      var button = Polymer.dom(e).localTarget;
+      var copy = this.$$('clipboard-copy');
+      copy.content = this.value;
+      if (copy.copy()) {
+        button.icon = 'arc:done';
+      } else {
+        button.icon = 'arc:error';
+        this.fire('send-analytics', {
+          type: 'exception',
+          description: 'Copy to clipboard error - raml-body-editor',
+          fatal: false
+        });
+      }
+      this.async(function() {
+        this._resetCopyButtonState(button);
+      }, 1000);
+      this.fire('send-analytics', {
+        type: 'event',
+        category: 'raml-body-editor',
+        action: 'Copy to clipboard'
+      });
+    },
+
+    _resetCopyButtonState: function(button) {
+      button.icon = 'arc:content-copy';
+    },
+    /**
+     * A handler for the content type change event from the file selector.
+     * The event is canceled and the content type is body's content type.
+     */
+    _handleFileTypeChange: function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    },
+
+    _openedEditorChanged: function(newValue, oldVal) {
+      if (oldVal === undefined) {
+        return;
+      }
+      var label;
+      switch (newValue) {
+        case 0: label = 'Raw data'; break;
+        case 1: label = 'URL form editor'; break;
+        case 2: label = 'Multipart body'; break;
+        case 3: label = 'Files editor'; break;
+        case 4: label = 'JSON editor'; break;
+      }
+      this.fire('send-analytics', {
+        type: 'event',
+        category: 'raml-body-editor',
+        action: 'Opened editor changed',
+        label: label
+      });
+    }
+  });
+  </script>
+</dom-module>

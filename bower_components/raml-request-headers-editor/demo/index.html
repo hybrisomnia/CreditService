@@ -1,0 +1,103 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+  <title>raml-request-headers-editor demo</title>
+  <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+  <link rel="import" href="../../arc-demo-helpers/raml-demo-page.html">
+  <link rel="import" href="../../font-roboto/roboto.html">
+  <link rel="import" href="../../paper-input/paper-textarea.html">
+  <link rel="import" href="../../paper-button/paper-button.html">
+  <link rel="import" href="../raml-request-headers-editor.html">
+  <style is="custom-style">
+   :root {
+    --raml-headers-form: {
+      padding: 16px;
+    }
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto', 'Noto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+  }
+
+  raml-request-headers-editor {
+    margin-bottom: 40px;
+    border: 1px #e5e5e5 solid;
+  }
+
+  output {
+    display: block;
+    white-space: pre-wrap;
+  }
+  </style>
+</head>
+
+<body unresolved>
+  <template is="dom-bind" id="app">
+    <raml-demo-page selected-object="{{selected}}" is-method="{{isMethod}}">
+      <h1>The raml-headers-form element</h1>
+      <div main>
+        <template is="dom-if" if="[[isMethod]]">
+          <raml-request-headers-editor raml-headers="[[selected.headers]]" value="{{headers}}" content-type="{{contentType}}"></raml-request-headers-editor>
+          <h4>Current headers value</h4>
+          <output>[[headers]]</output>
+          <h4>Current content type</h4>
+          <output>[[contentType]]</output>
+
+          <div class="change-event-form">
+            <h3>Update editor value with custom event.</h3>
+            <paper-textarea label="Event headers" value="{{eventHeaders}}"></paper-textarea>
+            <paper-button on-tap="fireEvent">Fire event</paper-button>
+          </div>
+          <div class="change-event-form">
+            <h3>Update header value with custom event.</h3>
+            <paper-input label="Header name" value="{{eventHeaderName}}"></paper-input>
+            <paper-input label="Header value" value="{{eventHeaderValue}}"></paper-input>
+            <paper-button on-tap="fireSingleEvent">Fire event</paper-button>
+          </div>
+        </template>
+        <p hidden$="[[isMethod]]">Select a method</p>
+      </div>
+    </raml-demo-page>
+  </template>
+  <script>
+  (function(app) {
+    app.eventHeaders = '';
+    app.eventHeaderName = '';
+    app.eventHeaderValue = '';
+    app.fireEvent = function() {
+      app.fire('request-headers-changed', {
+        value: app.eventHeaders
+      });
+    };
+    app.fireSingleEvent = function() {
+      app.fire('request-header-changed', {
+        name: app.eventHeaderName,
+        value: app.eventHeaderValue
+      });
+    };
+  })(document.getElementById('app'));
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,343 @@
+<!--
+@license
+Copyright 2016 The Advanced REST client authors <arc@mulesoft.com>
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+-->
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-menu-button/paper-menu-button.html">
+<link rel="import" href="../paper-ripple/paper-ripple.html">
+<link rel="import" href="../raml-aware/raml-aware.html">
+<link rel="import" href="../raml-behaviors/raml-behavior.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../iron-media-query/iron-media-query.html">
+
+<link rel="import" href="../arc-icons/arc-icons.html">
+<link rel="import" href="raml-structure-tree.html">
+<!--
+Navigation element to select a path in the RAML structure. It displays RAML
+API's structure in the tree view and allow to select a node and signal path
+selected by the user.
+
+The **selectedPath** is a property that is recognizable by most of the ARC
+elements. It tells elements which view to render.
+The path (or JSON path) is a string representing a path to the object in the
+JSON structure. For example if selected view is to display a documentation for
+the first method in the first resource in the RAML structure the path will
+look like the following:
+```
+resources.0.methods.0
+```
+
+To better understand paths consider following RAML example
+```yaml
+#%RAML 1.0
+title: Google Drive
+
+types:
+  type1: ...
+  type2: ...
+documentation:
+  - title: Doc
+    content: Documentation
+/files:
+  post: ...
+  get: ...
+  /{fileId}:
+    path: ...
+    get: ...
+/apps:
+  post: ...
+  get: ...
+```
+
+##### The `summary` path
+Represents a summary view of the RAML file. It's not a path in the JSON
+structure (don't exists in RAML) but it's a virtual path to signal to display
+the summary docs view.
+
+##### The `resources` path
+
+Path representing a resource documentation. Valid path requires presence of a
+resource index in the RAML structure according to regexp:
+```
+(resource\.(\d+)-?)+
+```
+It can be recursive.
+
+Examples:
+- `resources.1` - second resource in the RAML structure, the `/apps` in example
+- `resources.0.resources.0` - First sub-resource of the first resource, the `/files/{fileId}` in the example
+
+##### The resources-methods path
+Represents method documentation in the RAML. Valid path requires presence of a
+mathod index in the resource structure according to regexp:
+```
+(resource\.(\d+)\.?)\.(method(\d+)\.?)
+```
+Examples:
+- `resources.0.resources.0.methods.0` - First method in the first sub-resource of the first resource, the `PATCH /files/{fileId}` in the example
+- `resources.1.methods.1` - Second method of the second resource, the `GET /apps` in the example
+
+
+##### The `types` path
+Represents a type documentation. Valid path requires presence of a
+type index in the RAML structure according to regexp:
+```
+type\.(\d+)
+```
+Examples:
+- `types.0` - First type in RAML structure, the `type1` in the example
+- `types.1` - Second type in RAML structure, the `type2` in the example
+
+
+##### The `documentation` path
+Links to the documentation object in the RAML structure
+```
+documentation\.(\d+)
+```
+Examples:
+- `documentation.0` - First element in the documentation list, the `Doc` documentation in the example.
+
+See demo for working example.
+
+## Usage
+```html
+<raml-path-selector first-level-opened resources-opened documentation-opened></raml-path-selector>
+<raml-path-to-object></raml-path-to-object>
+
+<script>
+var selector = document.querySelector('raml-path-selector');
+// This element is meant to work together with path selector.
+var object = document.querySelector('raml-path-to-object');
+
+// Sets the (enhanced) RAML object on the element
+// See https://elements.advancedrestclient.com/elements/raml-json-enhance
+window.addEventListener('raml-json-enhance-ready', function(e) {
+  selector.raml = e.detail.json;
+  object.raml =  e.detail.json;
+});
+
+// Fired when path selection changes
+selector.addEventListener('selected-path-changed', function(e) {
+  object.selectedPath = e.detail.value;
+});
+
+// Fired when the object for the path is computed.
+// Though, it's a synchronous operation so the `selectedObject` can be read
+// from the `object` element right after assigning the path value.
+window.addEventListener('raml-selected-object-changed', function(e) {
+  var selectedObject = e.detail.selectedObject;
+  // Assign to request or documentation panel.
+});
+</script>
+```
+
+The tree items are collapsed by default. Use `first-level-opened`, `resources-opened`,
+`documentation-opened` and `types-opened` attributes to control this behavior.
+
+```
+<raml-path-selector first-level-opened resources-opened documentation-opened></raml-path-selector>
+```
+
+
+## Responsive view
+The element support `narrow` property to render additional controls for small screen.
+In narrow layout the user can walk through the structure using separate screen for
+each resource. In regular view only tree view is available. See demo for more
+details.
+
+## Styling
+`<raml-path-selector>` provides the following custom properties and mixins for styling:
+
+Custom property | Description | Default
+----------------|-------------|----------
+`--raml-path-selector` | Mixin applied to the element | `{}`
+`--raml-path-selector-background-color` | Background color of the element | `--primary-background-color`
+`--raml-path-selector-color` | Font color applied to this element | `--primary-text-color`
+
+See other elemets documentation more styling options.
+
+@group RAML Elements
+@element raml-path-selector
+@demo demo/index.html
+@hero hero.svg
+-->
+<dom-module id="raml-path-selector">
+  <template>
+    <style>
+    :host {
+      display: block;
+
+      background-color: var(--raml-path-selector-background-color, --primary-background-color);
+      color: var(--raml-path-selector-color, --primary-text-color);
+
+      overflow: auto;
+      @apply(--raml-path-selector);
+    }
+    </style>
+    <iron-media-query query="(max-width: [[narrowWidth]])" query-matches="{{narrow}}"></iron-media-query>
+    <raml-structure-tree
+      raml="[[raml]]"
+      has-documentation="[[hasDocumentation]]"
+      has-resources="[[hasResources]]"
+      has-types="[[hasTypes]]"
+      selected-path="{{selectedPath}}"
+      opened="[[firstLevelOpened]]"
+      narrow="[[_narrowValue]]"
+      narrow-width="[[narrowWidth]]"
+      documentation-opened="[[documentationOpened]]"
+      types-opened="[[typesOpened]]"
+      resources-opened="[[resourcesOpened]]"
+      noink="[[noink]]"
+      indent-size="[[indentSize]]"></raml-structure-tree>
+    <template is="dom-if" if="[[aware]]" restamp="true">
+      <raml-aware raml="{{raml}}" scope="[[aware]]"></raml-aware>
+    </template>
+  </template>
+  <script>
+  Polymer({
+    is: 'raml-path-selector',
+    behaviors: [Polymer.RamlBehavior],
+
+    properties: {
+      // Currently selected by the user path.
+      selectedPath: {
+        type: String,
+        notify: true
+      },
+      // If true then the first level of resources will be opened by default.
+      firstLevelOpened: {
+        type: Boolean
+      },
+      /**
+       * Computed value, true if the `documentation` array is not empty
+       */
+      hasDocumentation: {
+        type: Boolean,
+        readOnly: true
+      },
+      /**
+       * Computed value, true if the `resources` array is not empty
+       */
+      hasResources: {
+        type: Boolean,
+        readOnly: true
+      },
+      /**
+       * Computed value, true if the `types` object contains entries.
+       */
+      hasTypes: {
+        type: Boolean,
+        readOnly: true
+      },
+      // Name of the `<raml-aware>` scope, so it will fill the raml property.
+      aware: String,
+      /**
+       * If set it will renders the view in the narrow layout.
+       */
+      narrow: {
+        type: Boolean,
+        notify: true,
+        reflectToAttribute: true
+      },
+      // A widith below which the `narrow` property will be set to true.
+      narrowWidth: {
+        type: String,
+        value: '768px'
+      },
+      /**
+       * If set it will override the narrow layout property and force
+       * wide layout. Then it will also ignore the media queries settings.
+       */
+      forceWideLayout: {
+        type: Boolean,
+        value: false,
+        reflectToAttribute: true
+      },
+      // Computed value for the narrow view.
+      _narrowValue: {
+        type: Boolean,
+        value: false,
+        computed: '_computeNarrowValue(forceWideLayout, narrow)'
+      },
+      /**
+       * If true then the documentation section will be exanded if the RAML
+       * contains documentation.
+       */
+      documentationOpened: Boolean,
+      /**
+       * If true then the types list section will be exanded if the RAML
+       * contains types.
+       */
+      typesOpened: Boolean,
+      /**
+       * If true then the resources list section will be exanded if the RAML
+       * contains resources.
+       */
+      resourcesOpened: Boolean,
+      /**
+       * If true, the element will not produce a ripple effect when interacted with via the pointer.
+       */
+      noink: Boolean,
+      /**
+       * A unit of indentation per deep lever.
+       * Fox example value `24` is multiplied by current level (eg. 2)
+       * givin 48 pixels margin.
+       */
+      indentSize: {
+        type: Number,
+        value: 24
+      }
+    },
+
+    observers: [
+      '_ramlChanged(raml.*)'
+    ],
+
+    __resetVariables: function() {
+      this._setHasDocumentation(undefined);
+      this._setHasResources(undefined);
+      this._setHasTypes(undefined);
+    },
+    /**
+     * Instead of calling compute function for each property this
+     * will compute initial variables state when RAML changed.
+     */
+    _ramlChanged: function(record) {
+      this.__resetVariables();
+      if (!record || !record.base) {
+        return;
+      }
+      var raml = record.base;
+      if (raml.documentation && raml.documentation.length) {
+        this._setHasDocumentation(true);
+      }
+      if (raml.types && Object.keys(raml.types).length) {
+        this._setHasTypes(true);
+      }
+      if (raml.resources && raml.resources.length) {
+        this._setHasResources(true);
+      }
+    },
+    /**
+     * Computes the `narrowValue` property.
+     * If `forceWideLayout` is set then it will always return `false`.
+     * Otherwise it depends on the `narrow` value.
+     */
+    _computeNarrowValue: function(forceWideLayout, narrow) {
+      if (forceWideLayout) {
+        return false;
+      }
+      return narrow;
+    }
+  });
+  </script>
+</dom-module>
