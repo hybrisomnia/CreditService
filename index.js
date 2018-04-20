@@ -1,39 +1,47 @@
+/*jshint esversion: 6 */
+
+"use strict";
+
+const config = require("./config");
+const restify = require("restify");
+const mongoose = require("mongoose");
+const restifyPlugins = require("restify-plugins");
+const passport = require("passport");
+const bodyParser = require("body-parser");
+const JWTStrategy = require("@sap/xssec").JWTStrategy;
+
 /**
- * 
+ * Initialize Server
  */
-
-'use strict';
-
-const Hapi = require('hapi');
-const mongojs = require('mongojs');
-
-// Create a server with a host and port
-const server = new Hapi.Server();
-server.connection({
-    host: 'localhost', 
-    port: 3000
+const server = restify.createServer({
+    name: config.name
 });
 
-// Connect to db
-server.app.db = mongojs('creditsdb');
+passport.use(new JWTStrategy(config.uaa));
 
-// Load plugins and start server
-server.register([
-	{
-		register: require('./routes/credits')
-	},
-	{
-		register: require('./routes/creditbundles')
-	}
-], (err) => {
+server.use(bodyParser.json());
+server.use(passport.initialize());
+server.use(passport.authenticate("JWT", {session: false}));
+server.use(restifyPlugins.queryParser({mapParams: true}));
 
-    if (err) {
-        throw err;
-    }
+/**
+ * Start Server, Connect to DB & Require Routes
+ */
+server.listen(config.port, () => {
+    // establish connection to mongodb
+    mongoose.Promise = global.Promise;
+    mongoose.connect(config.db.uri);
 
-    // Start the server
-    server.start((err) => {
-        console.log('Server running at:', server.info.uri);
+    const db = mongoose.connection;
+
+    db.on("error", (err) => {
+        console.error(err);
+        process.exit(1);
     });
 
+    db.once("open", () => {
+        require("./routes")(server);
+        console.log(`Server is listening on port ${config.port}`);
+    });
 });
+

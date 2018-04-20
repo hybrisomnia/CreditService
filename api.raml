@@ -16,40 +16,135 @@ baseUri: 'http://localhost:3000/'
         description: Assigned user
         type: string
         required: false
-      includeExpired:
+      include_expired:
         example: true
-        description: Property description
-        default: true
+        description: Include expired bundles
+        default: false
+        type: boolean
+        required: false
+      include_empty:
+        example: true
+        description: Include empty (quantity = 0) bundles
+        default: false
         type: boolean
         required: false
   post:
     body:
       application/json:
+        example:
+          expire_date: '2019-01-22'
+          quantity: 100
+          assigned_to:
+            - mike@gmail.com
+            - sarah@gmail.com
         type: object
         properties:
-          expiredate:
+          expire_date:
             required: true
             example: '2019-01-22'
             description: Expiration date
             type: date-only
           quantity:
             required: true
+            format: int
             example: 100
             description: Credit Quantity
             type: integer
-          assignedto:
-            required: false
-            uniqueItems: true
-            description: Users assigned to credit bundle
+          assigned_to:
+            required: true
+            description: Assigned Users
             type: array
             items:
-              required: false
+              required: true
               example: jane@gmail.com
               type: string
   '/{id}':
+    get:
+      responses:
+        '200':
+          body:
+            application/json:
+              example:
+                assigned_to:
+                  - mike@gmail.com
+                  - sarah@gmail.com
+                _id: 5a6a1b98f9f33c19cb62b1a4
+                expire_date: '2018-06-18T00:00:00.000Z'
+                quantity: 246
+                code: DIIT-KOR2-QYX6
+                updatedAt: '2018-01-25T20:49:39.095Z'
+                createdAt: '2018-01-25T18:02:00.954Z'
+                __v: 0
+              type: object
     uriParameters:
       id:
-        example: 82b79fa0-ff2e-11e7-9841-5f2dfd444c36
-        description: Credit Bundle ID
+        example: DIIT-KOR2-QYX6
+        description: Credit Bundle Code
         type: string
-/credits: {}
+/transactions:
+  get:
+    responses:
+      '200':
+        body:
+          application/json:
+            example: |-
+              [
+                  {
+                      "_id": "5a6a2fc0935b1e1e164c43f1",
+                      "type": "NEW",
+                      "quantity": 1000,
+                      "bundle_code": "R68N-YHRN-J0LR",
+                      "updatedAt": "2018-01-25T19:28:00.025Z",
+                      "createdAt": "2018-01-25T19:28:00.025Z",
+                      "__v": 0
+                  },
+                  {
+                      "_id": "5a6a32f297357f1eadf94316",
+                      "type": "DEDUCT",
+                      "quantity": 3,
+                      "bundles": null,
+                      "updatedAt": "2018-01-25T19:41:38.270Z",
+                      "createdAt": "2018-01-25T19:41:38.270Z",
+                      "__v": 0
+                  }
+            type: object
+  '/{id}':
+    get:
+      responses:
+        '200': {}
+    uriParameters:
+      id:
+        example: 5a6a2fc0935b1e1e164c43f1
+        description: Transaction Id
+        type: string
+    /refund:
+      post:
+        responses:
+          '200': {}
+/credits/use:
+  post:
+    queryParameters:
+      user:
+        example: mike@gmail.com
+        description: Property description
+        type: string
+      bundle:
+        example: F7FC-KR4U-PC23
+        description: Bunde to use
+        type: string
+        required: false
+    body:
+      application/json:
+        example:
+          quantity: 10000
+        type: object
+        properties:
+          quantity:
+            required: true
+            example: 1
+            description: Property description
+            type: integer
+
+
+
+

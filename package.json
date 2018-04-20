@@ -4,21 +4,28 @@
   "description": "Learning Credit Service",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
   },
-  "author": "",
+  "author": "Omnia Ibrahim",
   "license": "ISC",
   "dependencies": {
-    "api-console-builder": "^0.4.5",
-    "boom": "^4.2.0",
+    "@sap/approuter": "^4.0.1",
+    "@sap/xssec": "^2.1.4",
+    "body-parser": "^1.18.2",
+    "cfenv": "^1.0.4",
     "express": "^4.16.2",
-    "hapi": "^16.1.0",
-    "joi": "^10.2.2",
-    "mongodb": "^3.0.1",
-    "mongojs": "^2.4.0",
-    "mongoose": "^5.0.0",
-    "node-uuid": "^1.4.7",
-    "promise": "^8.0.1",
-    "promises": "^0.2.5"
+    "mongoose": "^5.0.1",
+    "mongoose-string-query": "^0.2.5",
+    "mongoose-timestamp": "^0.6.0",
+    "passport": "^0.4.0",
+    "restify": "^6.3.4",
+    "restify-errors": "^5.0.0",
+    "restify-plugins": "^1.6.0",
+    "voucher-code-generator": "^1.1.1"
+  },
+  "engines": {
+    "node": "^9.2.0",
+    "npm": "5.6.0"
   }
 }

@@ -1,0 +1,15 @@
+applications:
+- name: creditservice
+  memory: 256M  
+  instances: 1
+  env:
+      destinations: >
+        [
+          {
+            "name":"creditservice",
+            "url":"https://api.cf.eu10.hana.ondemand.com",
+            "forwardAuthToken": true
+          }
+        ]
+  services:
+      - myuaa
