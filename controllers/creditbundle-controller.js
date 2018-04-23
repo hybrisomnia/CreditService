@@ -1,14 +1,21 @@
-/**
- * http://usejsdoc.org/
- */
+/*jshint esversion: 6 */
 
 "use strict";
 
 const errors = require('restify-errors');
+const base_url  = process.env.BASE_URL || 'http://localhost:3000';
 
 function creditBundleController() {
     var CreditBundleService = require('../services/creditbundle-service');
     var TransactionService = require("../services/transaction-service");
+
+    this.deleteCreditBundles = function (req, res, next) {
+        CreditBundleService.deleteCreditBundles().then(function (r) {
+            res.send(200, r);
+        }).catch(function (err) {
+            res.send(400, err);
+        });
+    };
 
     this.createCreditBundle = function (req, res, next) {
         if (!req.is('application/json')) {
@@ -25,20 +32,15 @@ function creditBundleController() {
                 t.bundle_code = doc.code;
 
                 TransactionService.createTransaction(t);
-                res.send(201, doc.code);
+                res.send(201, base_url + "/creditbundles/" + doc.code);
                 next();
             }).catch(function (err) {
-                console.error(err);
-                res.send(err);
-                return next(new errors.InternalError(err.message));
+                res.send(400,err);
         });
-
-
     };
 
     this.getCreditBundles = function (req, res, next) {
 
-        console.log(req);
         var query = {};
         var inc_empty = false;
         var inc_expired = false;
@@ -58,7 +60,6 @@ function creditBundleController() {
             res.send(docs);
             next();
         }).catch(function (err) {
-            console.error(err);
             return next(new errors.InvalidContentError(err.errors.name.message));
         });
     };
@@ -67,10 +68,12 @@ function creditBundleController() {
         var code = req.params.creditbundle_code;
 
         CreditBundleService.getCreditBundle(code).then(function (doc) {
-            res.send(doc);
+            if(!doc){
+                res.send(404,"Resource " + code + " not found.");
+            }
+            res.send(200,doc);
             next();
         }).catch(function (err) {
-            console.error(err);
             return next(new errors.InvalidContentError(err.errors.name.message));
         });
 

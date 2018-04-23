@@ -8,6 +8,30 @@ function creditController() {
     var CreditBundleService = require("../services/creditbundle-service");
     var TransactionService = require("../services/transaction-service");
 
+    this.getCredits = function (req, res, next) {
+        var query = {};
+        if (req.query.user) {
+            query.assigned_to = req.query.user;
+        }
+
+        CreditBundleService.getCreditBundles(query).then(function (docs) {
+
+            var credits = 0;
+            docs.forEach(function (doc) {
+                console.log(doc);
+                credits += doc.quantity;
+            });
+
+            res.send(200, credits + " credits available");
+        }).catch(function (err) {
+            if (err) {
+                console.error(err);
+                return next(new errors.InvalidContentError(err.errors.name.message));
+            }
+        });
+
+    };
+
     this.useCredits = function (req, res, next) {
 
         if (!req.is("application/json")) {
@@ -22,9 +46,11 @@ function creditController() {
             query.code = req.body.bundle;
         }
 
+
         CreditBundleService.getCreditBundles(query).then(function (docs) {
             var available_credits = 0;
             var requested_credits = req.body.quantity;
+
             var bundles = [];
             var remaining = requested_credits;
 
@@ -70,6 +96,11 @@ function creditController() {
                         if (count === bundles.length) {
                             var t = {};
                             t.type = "DEDUCT";
+                            if (req.body.order_number){
+                                console.log(req.body.order_number);
+                                t.order_number = req.body.order_number;
+                            }
+
                             t.quantity = requested_credits;
 
                             t.bundles = used_bundles;

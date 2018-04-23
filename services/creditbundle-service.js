@@ -7,6 +7,10 @@ const voucherCodes = require('voucher-code-generator');
 function creditBundleService() {
     var CreditBundle = require('../models/creditbundle');
 
+    this.deleteCreditBundles = function () {
+        return CreditBundle.remove();
+    };
+
     this.getCreditBundles = function (query,empty,expired) {
         var dt, q;
 

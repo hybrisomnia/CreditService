@@ -1,10 +1,9 @@
-/**
- * http://usejsdoc.org/
- */
+/*jshint esversion: 6 */
 
 "use strict";
 
 const errors = require('restify-errors');
+const base_url  = process.env.BASE_URL || 'http://localhost:3000';
 
 function transactionController()
 {
@@ -75,35 +74,41 @@ function transactionController()
 
         TransactionService.getTransaction(id).then(function (doc)
         {
-           //var bundles = doc.bundles;
-            console.log("doc : ");
-            console.log(doc);
-            if(doc.type != "DEDUCT"){
+           if(doc.type != "DEDUCT"){
                 return res.send(400,"Transaction type " + doc.type + " can not be refunded.");
             }
-            //check if refund already
-            var count = 0;
-            doc.bundles.forEach(function (b) {
-                CreditBundleService.increaseBundleQuantity(b.code, b.used).then(function(d) {
-                    count ++;
-                    if(count == doc.bundles.length){
+
+            TransactionService.getTransactions({"type" : "REFUND", "original_transaction" : id}).then(function(t) {
+                console.log(t);
+               if(t.length > 0){
+                   return res.send(400, "Transaction has already been refunded.");
+               }
+
+                var count = 0;
+                doc.bundles.forEach(function (b) {
+                    CreditBundleService.increaseBundleQuantity(b.code, b.used).then(function(d) {
+                        count ++;
+                        if(count == doc.bundles.length){
 
 
-                        // create refund trasaction
-                        var t = {};
-                        t.type = "REFUND";
-                        t.quantity = doc.quantity;
-                        debugger;
+                            // create refund trasaction
+                            var t = {};
+                            t.type = "REFUND";
+                            t.quantity = doc.quantity;
+                            debugger;
 
-                        t.bundles = doc.bundles;
-                        t.original_transaction = doc._id;
-                        TransactionService.createTransaction(t);
+                            t.bundles = doc.bundles;
+                            t.original_transaction = doc._id;
+                            TransactionService.createTransaction(t);
 
-                        res.send(d);
-                    }
+                            res.send(d);
+                        }
 
+                    });
                 });
             });
+
+
 
             /// / res.send(doc);
            // next();
@@ -113,6 +118,15 @@ function transactionController()
             return next(new errors.InvalidContentError(err.errors.name.message));
         });
 
+    };
+
+
+    this.deleteTransactions = function (req, res, next) {
+        TransactionService.deleteTransactions().then(function (r) {
+            res.send(200, r);
+        }).catch(function (err) {
+            res.send(400, err);
+        });
     };
 
 }

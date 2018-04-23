@@ -21,7 +21,7 @@ passport.use(new JWTStrategy(config.uaa));
 
 server.use(bodyParser.json());
 server.use(passport.initialize());
-server.use(passport.authenticate("JWT", {session: false}));
+//server.use(passport.authenticate("JWT", {session: false}));
 server.use(restifyPlugins.queryParser({mapParams: true}));
 
 /**
@@ -44,4 +44,3 @@ server.listen(config.port, () => {
         console.log(`Server is listening on port ${config.port}`);
     });
 });
-

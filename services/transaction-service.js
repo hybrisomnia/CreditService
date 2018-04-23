@@ -3,6 +3,10 @@
 function transactionService() {
     var Transaction = require("../models/transaction");
 
+    this.deleteTransactions = function () {
+        return Transaction.remove();
+    };
+
     this.getTransactions = function (query) {
         return Transaction.find(query).exec();
     };

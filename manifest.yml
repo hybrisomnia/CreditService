@@ -1,6 +1,6 @@
 applications:
 - name: creditservice
-  memory: 256M  
+  memory: 256M
   instances: 1
   env:
       destinations: >
@@ -13,3 +13,4 @@ applications:
         ]
   services:
       - myuaa
+      - mongodb

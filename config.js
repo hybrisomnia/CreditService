@@ -23,9 +23,21 @@ module.exports = {
     name : 'API',
     env : process.env.NODE_ENV || 'development',
     port : process.env.PORT || 3000,
-    base_url : process.env.BASE_URL || 'http://localhost:3000',
-    db : {
-        uri :  appEnv.isLocal ? 'mongodb://127.0.0.1:27017/api' : appEnv.services.mongodb[0].credentials.uri
-    },
-    uaa : appEnv.isLocal ? uaa_config : xsenv.getServices({ uaa: "myuaa" }).uaa
+    base_url : process.env.BASE_URL || 'http://localhost:3000'
 };
+
+module.exports.db = {};
+if(appEnv.isLocal){
+  module.exports.db.uri = 'mongodb://127.0.0.1:27017/api';
+}else{
+  if(appEnv.services.mongodb){
+    module.exports.db.uri = appEnv.services.mongodb[0].credentials.uri;
+  }else{
+    module.exports.db.uri = "";
+  }
+  if(xsenv.getServices({ uaa: "myuaa" })){
+    module.exports.uaa = xsenv.getServices({ uaa: "myuaa" }).uaa
+  }else{
+    console.log("Service myuaa is not found");
+  }
+}

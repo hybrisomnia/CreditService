@@ -24,6 +24,10 @@ const TransactionSchema = new mongoose.Schema({
     },
     original_transaction : {
         type : String
+    },
+    order_number : {
+        type : String,
+        required : false
     }
 
 }, {
