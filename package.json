@@ -15,7 +15,7 @@
     "body-parser": "^1.18.2",
     "cfenv": "^1.0.4",
     "express": "^4.16.2",
-    "mongoose": "^5.0.1",
+    "mongoose": "^5.7.5",
     "mongoose-string-query": "^0.2.5",
     "mongoose-timestamp": "^0.6.0",
     "passport": "^0.4.0",
